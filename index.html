@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <html lang="en">
+     <title>IoT Lockbox Dashboard</title>
+    <meta http-equiv="refresh" content="5"> <!--refresh page every 5 seconds-->
+    <meta charset="utf-8">
+    <link rel= "stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="The Home Page">
+    <meta name="keywords" content="Key content">
+    <meta name="author" content="Rye Mohammed Fahim">
+</head>
+
+<body>
+
+<nav>
+  <a href="/">Dashboard</a>
+  <a href="/data">View Database</a>
+  <a href="/controls">Control Panel</a>
+</nav>
+
+<h1>IoT Secure Medical Smartbox Dashboard</h1>
+
+{% if active_alarm %}
+<div class="alert-box">
+    !! ACTIVE ALARM: {{ active_alarm }} !!
+</div>
+{% endif %}
+
+<div class = "box" >
+    <h2>Live Sensor Data</h2>
+    <p><b>Light:</b> {{ sensor[0] }}</p>
+    <p><b>Temperature:</b> {{ sensor[1] }} °C</p>
+    <p><b>Humidity:</b> {{ sensor[2] }} %</p>
+
+    <h2>Lock Status</h2>
+    <p>{{ state[0] }}</p>
+</div>
+
+<div class = "box">
+    <h2>Recent Alerts</h2>
+
+    <table border="1">
+    <tr>
+        <th>Alarm</th>
+        <th>Timestamp</th>
+    </tr>
+
+    {% for alarm in alarms %}
+    <tr>
+        <td>{{ alarm[0] }}</td>
+        <td>{{ alarm[1] }}</td>
+    </tr>
+    {% endfor %}
+
+    </table>
+</div>
+
+
+
+<div class = "box" >
+    <h2>Temperature Stats</h2>
+    <p><b>Average:</b> {{ tempStats[0] }}</p>
+    <p><b>Minimum:</b> {{ tempStats[1] }}</p>
+    <p><b>Maximum:</b> {{ tempStats[2] }}</p>
+</div>
+
+</body>
+</html>

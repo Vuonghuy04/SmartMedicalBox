@@ -1,0 +1,25 @@
+<head>
+    <html lang="en">
+     <title>Control</title>
+    <meta http-equiv="refresh" content="5"> <!--refresh page every 5 seconds-->
+    <meta charset="utf-8">
+    <link rel= "stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="The Home Page">
+    <meta name="keywords" content="Key content">
+    <meta name="author" content="Rye Mohammed Fahim">
+</head>
+
+
+<nav>
+    <a href="/">Dashboard</a>
+    <a href="/data">View Database</a>
+</nav>
+
+<h1>Control Panel</h1>
+
+<form method="POST" action="/controls">
+    <button type="submit" name="action" value="LOCK">Lock</button>
+    <button type="submit" name="action" value="UNLOCK">Unlock</button>
+    <button type="submit" name="action" value="MUTE">Mute</button>
+</form> 

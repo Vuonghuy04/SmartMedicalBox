@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <html lang="en">
+     <title>View Database Records</title>
+    <meta http-equiv="refresh" content="5"> <!--refresh page every 5 seconds-->
+    <meta charset="utf-8">
+    <link rel= "stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="The Home Page">
+    <meta name="keywords" content="Key content">
+    <meta name="author" content="Rye Mohammed Fahim">
+</head>
+
+<body>
+
+<!-- NAVIGATION -->
+<nav>
+    <a href="/">Dashboard</a>
+    <a href="/controls">Control Panel</a>
+</nav>
+
+<h1>Database</h1>
+
+<!-- TABLE SWITCH BUTTONS -->
+<div class="tab-buttons">
+    <a href="/data?table=sensor">Sensor Data</a>
+    <a href="/data?table=alarms">Alarms</a>
+    <a href="/data?table=access">Access Logs</a>
+</div>
+
+<div class="box">
+
+<!-- SENSOR TABLE -->
+{% if request.args.get('table') == 'sensor' or not request.args.get('table') %}
+
+    <h2>Sensor Data</h2>
+
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Timestamp</th>
+            <th>Light</th>
+            <th>Temperature</th>
+            <th>Humidity</th>
+        </tr>
+
+        {% for row in sensor_data %}
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+            <td>{{ row[3] }}</td>
+            <td>{{ row[4] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+{% endif %}
+
+<!-- ALARMS TABLE -->
+{% if request.args.get('table') == 'alarms' %}
+
+    <h2>Alarm Logs </h2>
+
+    <table border="1">
+        <tr>
+            <th>ID</th>
+            <th>Timestamp</th>
+            <th>Alarm Type</th>
+        </tr>
+
+        {% for row in alarms %}
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+
+{% endif %}
+
+<!-- ACCESS LOG TABLE -->
+{% if request.args.get('table') == 'access' %}
+
+    <h2>Access Logs</h2>
+
+    <table border="1" >
+        <tr>
+            <th>ID</th>
+            <th>Timestamp</th>
+            <th>Action</th>
+            
+        </tr>
+
+        {% for row in access_logs %}
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td>{{ row[1] }}</td>
+            <td>{{ row[2] }}</td>
+            
+        </tr>
+        {% endfor %}
+    </table>
+
+{% endif %}
+
+</div>
+
+</body>
+</html>
