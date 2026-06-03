@@ -121,6 +121,7 @@ try:
                 if not wrongPwdLogged: 
                     cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('WRONG-PASSWORD')") #log wrong password attemp into db
                     dbconn.commit()
+                    tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "WRONG-PASSWORD"}))
                     wrongPwdLogged = True
                     print("Wrong password alarm logged")
                 send_cmd("ALARM_LDR") #tells arduino to trigger alarm
@@ -228,6 +229,7 @@ try:
         if ldrAlarm == 1 and not ldrLogged:
             cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('UNAUTHORISED-ACCESS')")
             dbconn.commit()
+            tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "UNAUTHORISED-ACCESS"}))
             ldrLogged = True
             print("LDR alarm logged")
 
@@ -235,6 +237,7 @@ try:
         if tempAlarm == 1 and not tempLogged:
             cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('TEMPERATURE')")
             dbconn.commit()
+            tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "TEMPERATURE"}))
             tempLogged = True
             print("Temp alarm logged")
 
@@ -242,6 +245,7 @@ try:
         if humAlarm == 1 and not humLogged: 
             cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('HUMIDITY')")
             dbconn.commit()
+            tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "HUMIDITY"}))
             humLogged = True
             print("Hum alarm logged")
 
