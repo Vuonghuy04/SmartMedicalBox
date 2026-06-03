@@ -25,6 +25,20 @@ arm_delay_active = False #delay period
 arm_delay_start = 0.0 
 Armed = True 
 
+#update the threshold based on thingsboard input 
+def update_threshold(param, value):
+    try:
+        db = pymysql.connect(host="localhost", user="pi", password="", database="IOT_LOCKBOX")
+        cur = db.cursor()
+        cur.execute("UPDATE thresholds SET value=%s WHERE param=%s", (value, param))
+        db.commit()
+        cur.close()
+        db.close()
+        return True
+    except Exception as e:
+        print(f"Threshold update error: {e}")
+        return False
+
 #send command to arduino function
 def send_cmd(cmd: str):
     arduino.write(f"{cmd}\n".encode())
@@ -44,6 +58,7 @@ def on_tb_message(client, userdata, msg):
 #listener function from telegram
 def telegram_listener():
     offset = 0
+    valid_params = ("TEMP_MIN", "TEMP_MAX", "HUM_MIN", "HUM_MAX", "LDR_MAX")
     while True:
         try:
             r = requests.get(
@@ -55,21 +70,61 @@ def telegram_listener():
                 offset = update["update_id"] + 1
                 msg = update.get("message", {})
                 chat_id = msg.get("chat", {}).get("id")
-                text = (msg.get("text") or "").strip().lower()
+                text = (msg.get("text") or "").strip()
                 if chat_id != TELEGRAM_CHAT_ID:
                     continue
-                if text in ("/lock", "/unlock", "/mute"):
-                    cmd = text[1:].upper()
+
+                lower = text.lower()
+                reply = None
+
+                # Simple commands → Arduino
+                if lower in ("/lock", "/unlock", "/mute", "/unmute"):
+                    cmd = lower[1:].upper()
                     send_cmd(cmd)
+                    reply = f"{cmd} sent to box."
+
+                # Threshold update: /set <PARAM> <VALUE>
+                elif lower.startswith("/set"):
+                    parts = text.split()
+                    if len(parts) != 3:
+                        reply = ("Usage: /set <PARAM> <VALUE>\n"
+                                 "Params: TEMP_MIN, TEMP_MAX, HUM_MIN, HUM_MAX, LDR_MAX")
+                    else:
+                        param = parts[1].upper()
+                        try:
+                            value = float(parts[2])
+                            if param not in valid_params:
+                                reply = f"Unknown param. Valid: {', '.join(valid_params)}"
+                            elif update_threshold(param, value):
+                                reply = f"{param} updated to {value}."
+                            else:
+                                reply = f"Failed to update {param}."
+                        except ValueError:
+                            reply = "Value must be a number."
+
+                # Show current thresholds
+                elif lower == "/thresholds":
+                    try:
+                        db = pymysql.connect(host="localhost", user="pi",
+                                             password="", database="IOT_LOCKBOX")
+                        cur = db.cursor()
+                        cur.execute("SELECT param, value FROM thresholds ORDER BY param")
+                        rows = cur.fetchall()
+                        cur.close(); db.close()
+                        reply = "\n".join(f"{p}: {v}" for p, v in rows) or "No thresholds set."
+                    except Exception as e:
+                        reply = f"Couldn't read thresholds: {e}"
+
+                if reply:
                     requests.post(
                         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                        json={"chat_id": chat_id, "text": f"{cmd} sent to box."},
+                        json={"chat_id": chat_id, "text": reply},
                         timeout=10
                     )
         except Exception as e:
             print(f"Telegram listener error: {e}")
             time.sleep(5)
-
+            
 dbconn = None 
 tb = None
 try:
