@@ -2,6 +2,9 @@ import paho.mqtt.client as mqtt
 import pymysql
 import time
 import json
+import requests
+from icalendar import Calendar
+from datetime import datetime, timedelta, timezone
 
 # ── MQTT Configuration (ThingsBoard) ──────────────────────────────────────────
 BROKER = "mqtt.thingsboard.cloud"
@@ -17,6 +20,11 @@ DB_CONFIG = dict(host="localhost", user="pi", password="", database="IOT_LOCKBOX
 # ── Timers ────────────────────────────────────────────────────────────────────
 TELEMETRY_INTERVAL = 5   # publish live sensor data every 5 seconds
 ANALYTICS_INTERVAL = 30  # publish 24h analytics every 30 seconds
+
+# == Calendar =================================================================
+CALENDAR_ICAL_URL  = "https://calendar.google.com/calendar/ical/5e76a33242c624798945a5705dc147a0a28be3102d304e8291897ee81dc7368b%40group.calendar.google.com/private-a0833b019ab680a32149a360c70739ab/basic.ics"
+CALENDAR_INTERVAL  = 60   # check every 60 seconds
+DOSE_WINDOW_MIN    = 5    # alert if dose is within next 5 minutes
 
 # ── Callback functions ────────────────────────────────────────────────────────
 def on_connect(client, userdata, flags, rc):
@@ -67,6 +75,35 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print("RPC error:", e)
 
+def check_upcoming_doses():
+    try:
+        r = requests.get(CALENDAR_ICAL_URL, timeout=10)
+        if r.status_code != 200:
+            print(f"Calendar fetch failed: HTTP {r.status_code}")
+            return
+
+        cal = Calendar.from_ical(r.text)
+        now = datetime.now(timezone.utc)
+        soon = now + timedelta(minutes=DOSE_WINDOW_MIN)
+
+        for event in cal.walk('VEVENT'):
+            dt = event.get('dtstart').dt
+            if not isinstance(dt, datetime):
+                continue
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+
+            uid = str(event.get('uid'))
+            if now <= dt <= soon and uid not in fired_doses:
+                summary = str(event.get('summary') or 'Dose due')
+                local_time = dt.astimezone().strftime('%H:%M')
+                msg = f"DOSE-DUE: {summary} at {local_time}"
+                print(f"[Calendar] {msg}")
+                client.publish(TOPIC_TELEMETRY, json.dumps({"alarm": msg}))
+                fired_doses.add(uid)
+    except Exception as e:
+        print(f"Calendar check error: {e}")
+
 # ── Initialize MQTT client ────────────────────────────────────────────────────
 client = mqtt.Client()
 client.username_pw_set(USERNAME)
@@ -78,6 +115,8 @@ client.loop_start()
 # ── Timers ────────────────────────────────────────────────────────────────────
 last_telemetry = 0
 last_analytics = 0
+last_calendar_check = 0
+fired_doses = set()
 
 try:
     while True:
@@ -153,6 +192,11 @@ try:
             print("Publishing analytics:", analytics)
             client.publish(TOPIC_TELEMETRY, analytics)
             last_analytics = now
+
+            # ── Check calendar for upcoming doses ────────────────────────────────
+            if now - last_calendar_check >= CALENDAR_INTERVAL:
+                check_upcoming_doses()
+                last_calendar_check = now
 
         time.sleep(0.1)
 
