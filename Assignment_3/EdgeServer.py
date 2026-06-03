@@ -79,7 +79,7 @@ try:
             TEMP_MAX = t.get("TEMP_MAX", 30.0)
             HUM_MIN = t.get("HUM_MIN",  40.0)
             HUM_MAX = t.get("HUM_MAX",  70.0)
-            LDR_MAX = t.get("LDR_MAX",  25.0)
+            LDR_MAX = t.get("LDR_MAX",  15.0)
             last_threshold_fetch = time.time()
             
 
