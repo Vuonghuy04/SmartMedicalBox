@@ -1,0 +1,5 @@
+pymysql
+serial
+paho-mqtt
+requests
+icalendar
