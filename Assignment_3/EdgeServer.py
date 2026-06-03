@@ -1,10 +1,18 @@
 import serial
 import pymysql
 import time
+import json
+import paho.mqtt.client as mqtt
 
 device = '/dev/cu.usbmodem101'
 arduino = serial.Serial(device, 9600)
 
+# ThingsBoard MQTT config 
+THINGSBOARD_HOST     = "thingsboard.cloud"
+THINGSBOARD_PORT     = 1883
+TB_ACCESS_TOKEN      = "SmartBox"
+TB_TELEMETRY_TOPIC   = "v1/devices/me/telemetry"
+TB_RPC_REQUEST_TOPIC = "v1/devices/me/rpc/request/+"
 
 #arm delay system
 arm_delay_active = False #delay period
@@ -16,9 +24,19 @@ def send_cmd(cmd: str):
     arduino.write(f"{cmd}\n".encode())
     print(f"[→ Arduino] {cmd}")
 
-
+# Handle commands coming from ThingsBoard 
+def on_tb_message(client, userdata, msg):
+    try:
+        body = json.loads(msg.payload.decode())
+        method = body.get("method", "").upper()
+        if method in ("LOCK", "UNLOCK", "MUTE"):
+            print(f"[TB → Edge] {method}")
+            send_cmd(method)
+    except Exception as e:
+        print(f"Bad MQTT command: {e}")
 
 dbconn = None 
+tb = None
 try:
     #database connection setup
     dbconn = pymysql.connect(
@@ -30,6 +48,15 @@ try:
     print("Connected to database.") #verifies connection
 
     cursor = dbconn.cursor() 
+
+    # Connect to ThingsBoard MQTT 
+    tb = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    tb.username_pw_set(TB_ACCESS_TOKEN)
+    tb.on_message = on_tb_message
+    tb.connect(THINGSBOARD_HOST, THINGSBOARD_PORT, keepalive=60)
+    tb.subscribe(TB_RPC_REQUEST_TOPIC)
+    tb.loop_start()
+    print("Connected to ThingsBoard.")
 
     #Thresholds table
     cursor = dbconn.cursor()
@@ -109,6 +136,7 @@ try:
                 if not wrongPwdLogged: 
                     cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('WRONG-PASSWORD')") #log wrong password attemp into db
                     dbconn.commit()
+                    tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "WRONG-PASSWORD"}))
                     wrongPwdLogged = True
                     print("Wrong password alarm logged")
                 send_cmd("ALARM_LDR") #tells arduino to trigger alarm
@@ -124,6 +152,12 @@ try:
         temp = float(values[1])
         hum = float(values[2])
         state = values[3].strip()
+
+        # Publish sensor telemetry 
+        tb.publish(TB_TELEMETRY_TOPIC, json.dumps({
+            "light": light, "temperature": temp, "humidity": hum,
+            "locked": 0 if state == "1" else 1
+        }))
 
         cursor.execute("SELECT id, command FROM commands WHERE executed=0")
         commands = cursor.fetchall()
@@ -208,6 +242,7 @@ try:
         if ldrAlarm == 1 and not ldrLogged:
             cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('UNAUTHORISED-ACCESS')")
             dbconn.commit()
+            tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "UNAUTHORISED-ACCESS"}))
             ldrLogged = True
             print("LDR alarm logged")
 
@@ -215,6 +250,7 @@ try:
         if tempAlarm == 1 and not tempLogged:
             cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('TEMPERATURE')")
             dbconn.commit()
+            tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "TEMPERATURE"}))
             tempLogged = True
             print("Temp alarm logged")
 
@@ -222,6 +258,7 @@ try:
         if humAlarm == 1 and not humLogged: 
             cursor.execute("INSERT INTO alarms (alarm_type) VALUES ('HUMIDITY')")
             dbconn.commit()
+            tb.publish(TB_TELEMETRY_TOPIC, json.dumps({"alarm": "HUMIDITY"}))
             humLogged = True
             print("Hum alarm logged")
 
