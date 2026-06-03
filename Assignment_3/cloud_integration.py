@@ -4,7 +4,7 @@ import time
 import json
 
 # ── MQTT Configuration (ThingsBoard) ──────────────────────────────────────────
-BROKER          = "mqtt.thingsboard.cloud"
+BROKER = "mqtt.thingsboard.cloud"
 PORT            = 1883
 USERNAME        = "SmartBox"
 TOPIC_TELEMETRY = "v1/devices/me/telemetry"
