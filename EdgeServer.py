@@ -1,10 +1,17 @@
 import serial
 import pymysql
 import time
+import paho.mqtt.client as mqtt
+import json
 
 device = '/dev/cu.usbmodem101'
 arduino = serial.Serial(device, 9600)
 
+#thingsboard MQTT config
+THINGSBOARD_HOST = "thingsboard.cloud"
+THINGSBOARD_PORT = 1883
+TB_ACCESS_TOKEN = "w1vBroK1aZ1FcO6SfJLX" #this is my access token from thingsboard atm
+TB_TELEMENTRY_TOPIC = "v1/devices/me/telementry"
 
 #set thresholds for alarms
 TEMP_MIN = 15.0
@@ -35,6 +42,17 @@ try:
         database = "IOT_LOCKBOX"
     )
     print("Connected to database.") #verifies connection
+
+    #connect to ThingsBoard MQTT broker
+    tb = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+    tb.username_pw_set = (TB_ACCESS_TOKEN)
+    tb.connect(THINGSBOARD_HOST, THINGSBOARD_PORT, keepalive=60)
+    tb.loop_start() 
+    print("Connected to Thingsboard.")
+    #============
+    # loop_start() runs the MQTT network loop in a background thread so white true
+    # doesn't have to manage it.
+    # CallbackAPIVersion.VERSION2 arg is to silence a deprecation warning in paho-mqtt 2.x.
 
     cursor = dbconn.cursor() 
 
@@ -100,6 +118,14 @@ try:
         temp = float(values[1])
         hum = float(values[2])
         state = values[3].strip()
+
+        #publishing to Thingsboard
+        tb.publish(TB_TELEMENTRY_TOPIC, json.dumps({
+            "light": light,
+            "temperature": temp,
+            "humidity": hum,
+            "locked": 0 if state == "1" else 1
+        }))
 
         cursor.execute("SELECT id, command FROM commands WHERE executed=0")
         commands = cursor.fetchall()
