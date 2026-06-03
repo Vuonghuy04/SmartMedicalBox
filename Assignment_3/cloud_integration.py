@@ -8,11 +8,11 @@ from datetime import datetime, timedelta, timezone
 
 # ── MQTT Configuration (ThingsBoard) ──────────────────────────────────────────
 BROKER = "mqtt.thingsboard.cloud"
-PORT            = 1883
-USERNAME        = "SmartBox"
+PORT = 1883
+USERNAME  = "SmartBox"
 TOPIC_TELEMETRY = "v1/devices/me/telemetry"
-TOPIC_RPC_REQ   = "v1/devices/me/rpc/request/+"
-TOPIC_RPC_RESP  = "v1/devices/me/rpc/response/{}"
+TOPIC_RPC_REQ = "v1/devices/me/rpc/request/+"
+TOPIC_RPC_RESP = "v1/devices/me/rpc/response/{}"
 
 # ── Database Configuration ────────────────────────────────────────────────────
 DB_CONFIG = dict(host="localhost", user="pi", password="", database="IOT_LOCKBOX")
@@ -22,9 +22,15 @@ TELEMETRY_INTERVAL = 5   # publish live sensor data every 5 seconds
 ANALYTICS_INTERVAL = 30  # publish 24h analytics every 30 seconds
 
 # == Calendar =================================================================
-CALENDAR_ICAL_URL  = "https://calendar.google.com/calendar/ical/d3f4e56bb2aacfe18e1c4f197e5b1c08db4d5f1109f3be2b555cb683d826b46d%40group.calendar.google.com/public/basic.ics"
-CALENDAR_INTERVAL  = 60   # check every 60 seconds
-DOSE_WINDOW_MIN    = 5    # alert if dose is within next 5 minutes
+CALENDAR_ICAL_URL = "https://calendar.google.com/calendar/ical/d3f4e56bb2aacfe18e1c4f197e5b1c08db4d5f1109f3be2b555cb683d826b46d%40group.calendar.google.com/public/basic.ics"
+CALENDAR_INTERVAL = 60   # check every 60 seconds
+DOSE_WINDOW_MIN  = 5    # alert if dose is within next 5 minutes
+
+#helper
+def extract_value(params, default=None):
+    if isinstance(params, dict):
+        return params.get("value", default)
+    return params
 
 # ── Callback functions ────────────────────────────────────────────────────────
 def on_connect(client, userdata, flags, rc):
@@ -36,9 +42,9 @@ def on_message(client, userdata, msg):
 
     try:
         request_id = msg.topic.split("/")[-1]
-        payload    = json.loads(msg.payload.decode())
-        method     = payload.get("method", "")
-        params     = payload.get("params", {})
+        payload = json.loads(msg.payload.decode())
+        method = payload.get("method", "")
+        params = payload.get("params", {})
 
         dbconn = pymysql.connect(**DB_CONFIG)
         cursor = dbconn.cursor()
@@ -57,14 +63,41 @@ def on_message(client, userdata, msg):
         elif method == "clear_all_alarms":
             cursor.execute("INSERT INTO commands (command) VALUES ('CLEAR_ALL')")
 
-        elif method == "set_threshold":
-            param = params.get("param", "").upper()
-            value = params.get("value")
-            if param in {"TEMP_MIN","TEMP_MAX","HUM_MIN","HUM_MAX","LDR_MAX"} and value is not None:
-                cursor.execute(
-                    "REPLACE INTO thresholds (param, value) VALUES (%s,%s)",
-                    (param, float(value))
-                )
+        elif method == "set_temp_max":
+            value = float(extract_value(params, 30))
+            cursor.execute("REPLACE INTO thresholds (param, value) VALUES ('TEMP_MAX', %s)", (value,))
+            dbconn.commit()
+
+            client.publish( TOPIC_TELEMETRY, json.dumps({"thresh_temp_max": value}))
+         
+        elif method == "set_temp_min":
+            value = float(extract_value(params, 15))
+            cursor.execute( "REPLACE INTO thresholds (param, value) VALUES ('TEMP_MIN', %s)", (value,))
+            dbconn.commit()
+
+            client.publish(TOPIC_TELEMETRY, json.dumps({ "thresh_temp_min": value }))
+
+        elif method == "set_hum_max":
+            value = float(extract_value(params, 70))
+            cursor.execute("REPLACE INTO thresholds (param, value) VALUES ('HUM_MAX', %s)", (value,) )
+            dbconn.commit()
+
+            client.publish(TOPIC_TELEMETRY, json.dumps({ "thresh_hum_max": value }))
+
+
+        elif method == "set_hum_min":
+            value = float(extract_value(params, 40))
+            cursor.execute("REPLACE INTO thresholds (param, value) VALUES ('HUM_MIN', %s)", (value,))
+            dbconn.commit()
+
+            client.publish(TOPIC_TELEMETRY, json.dumps({ "thresh_hum_min": value}))
+
+        elif method == "set_ldr_max":
+            value = float(extract_value(params, 25))
+            cursor.execute("REPLACE INTO thresholds (param, value) VALUES ('LDR_MAX', %s)", (value,))
+            dbconn.commit()
+
+            client.publish(TOPIC_TELEMETRY, json.dumps({ "thresh_ldr_max": value}))
 
         dbconn.commit()
         cursor.close()
@@ -136,6 +169,17 @@ try:
             cursor.execute("SELECT param, value FROM thresholds")
             t = {r[0]: r[1] for r in cursor.fetchall()}
 
+            cursor.execute(
+                "SELECT action FROM access_log ORDER BY timestamp DESC LIMIT 1"
+            )
+            lock_row = cursor.fetchone()
+            locked = 1
+            lock_label = "LOCKED"
+            if lock_row:
+                locked = 0 if lock_row[0] == "UNLOCK" else 1
+                lock_label = "UNLOCKED" if lock_row[0] == "UNLOCK" else "LOCKED"
+
+
             cursor.close()
             dbconn.close()
 
@@ -143,16 +187,19 @@ try:
                 light, temp, hum = row[0], row[1], row[2]
 
                 payload = json.dumps({
-                    "temperature":     float(temp),
-                    "humidity":        float(hum),
-                    "light":           float(light),
-                    "alarm_temp":      int(temp < t.get("TEMP_MIN",15) or temp > t.get("TEMP_MAX",30)),
-                    "alarm_hum":       int(hum  < t.get("HUM_MIN",40)  or hum  > t.get("HUM_MAX",70)),
-                    "alarm_ldr":       int(light > t.get("LDR_MAX",25)),
+                    "temperature": float(temp),
+                    "humidity": float(hum),
+                    "light": float(light),
+                    "locked":  locked,
+                    "lock_label": lock_label,
+                    "alarm_temp": int(temp < t.get("TEMP_MIN",15) or temp > t.get("TEMP_MAX",30)),
+                    "alarm_hum": int(hum  < t.get("HUM_MIN",40)  or hum  > t.get("HUM_MAX",70)),
+                    "alarm_ldr": int(light > t.get("LDR_MAX",25)),
                     "thresh_temp_min": float(t.get("TEMP_MIN", 15)),
                     "thresh_temp_max": float(t.get("TEMP_MAX", 30)),
-                    "thresh_hum_min":  float(t.get("HUM_MIN",  40)),
-                    "thresh_hum_max":  float(t.get("HUM_MAX",  70)),
+                    "thresh_hum_min": float(t.get("HUM_MIN",  40)),
+                    "thresh_hum_max": float(t.get("HUM_MAX",  70)),
+                    "thresh_ldr_max": float(t.get("LDR_MAX", 25))
                 })
 
                 print("Publishing telemetry:", payload)
@@ -179,14 +226,9 @@ try:
             dbconn.close()
 
             analytics = json.dumps({
-                "avg_temperature_24h":     round(float(r[1] or 0), 2),
-                "avg_humidity_24h":        round(float(r[2] or 0), 2),
-                "avg_light_24h":           round(float(r[0] or 0), 2),
-                "alarm_count_intrusion":   counts.get("UNAUTHORISED-ACCESS", 0),
+                "alarm_count_intrusion": counts.get("UNAUTHORISED-ACCESS", 0),
                 "alarm_count_temperature": counts.get("TEMPERATURE", 0),
-                "alarm_count_humidity":    counts.get("HUMIDITY", 0),
-                "alarm_count_wrong_pwd":   counts.get("WRONG-PASSWORD", 0),
-                "total_alarms_24h":        sum(counts.values()),
+                "alarm_count_humidity": counts.get("HUMIDITY", 0),
             })
 
             print("Publishing analytics:", analytics)

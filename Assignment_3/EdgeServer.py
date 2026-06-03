@@ -189,7 +189,10 @@ try:
 
     #store sensor data every 30 seconds
     last_sensor_insert = 0
-    SENSOR_INTERVAL = 30
+    SENSOR_INTERVAL = 3
+
+    arduino = serial.Serial(device, 9600, timeout=1)
+    time.sleep(2)  # Arduino reset delay
 
 
     while True:
@@ -208,7 +211,6 @@ try:
         if arm_delay_active and time.time() - arm_delay_start > 2.0:
             arm_delay_active = False
         
-        arduino = serial.Serial(device, 9600, timeout=1)
         
         #read arduino data
         data = arduino.readline().decode('utf-8').strip()
