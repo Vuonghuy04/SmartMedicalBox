@@ -22,7 +22,7 @@ TELEMETRY_INTERVAL = 5   # publish live sensor data every 5 seconds
 ANALYTICS_INTERVAL = 30  # publish 24h analytics every 30 seconds
 
 # == Calendar =================================================================
-CALENDAR_ICAL_URL  = "https://calendar.google.com/calendar/ical/5e76a33242c624798945a5705dc147a0a28be3102d304e8291897ee81dc7368b%40group.calendar.google.com/private-a0833b019ab680a32149a360c70739ab/basic.ics"
+CALENDAR_ICAL_URL  = "https://calendar.google.com/calendar/ical/d3f4e56bb2aacfe18e1c4f197e5b1c08db4d5f1109f3be2b555cb683d826b46d%40group.calendar.google.com/public/basic.ics"
 CALENDAR_INTERVAL  = 60   # check every 60 seconds
 DOSE_WINDOW_MIN    = 5    # alert if dose is within next 5 minutes
 
