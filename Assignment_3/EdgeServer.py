@@ -3,6 +3,8 @@ import pymysql
 import time
 import json
 import paho.mqtt.client as mqtt
+import threading 
+import requests
 
 device = '/dev/cu.usbmodem101'
 arduino = serial.Serial(device, 9600)
@@ -13,6 +15,10 @@ THINGSBOARD_PORT     = 1883
 TB_ACCESS_TOKEN      = "SmartBox"
 TB_TELEMETRY_TOPIC   = "v1/devices/me/telemetry"
 TB_RPC_REQUEST_TOPIC = "v1/devices/me/rpc/request/+"
+
+#Telegram config
+TELEGRAM_TOKEN = "8689084846:AAG2pNabNlin-BdEWlO2CRJKMdn5tHlx1mQ"
+TELEGRAM_CHAT_ID = 8891459090
 
 #arm delay system
 arm_delay_active = False #delay period
@@ -34,6 +40,35 @@ def on_tb_message(client, userdata, msg):
             send_cmd(method)
     except Exception as e:
         print(f"Bad MQTT command: {e}")
+
+#listener function from telegram
+def telegram_listener():
+    offset = 0
+    while True:
+        try:
+            r = requests.get(
+                f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/getUpdates",
+                params={"offset": offset, "timeout": 30},
+                timeout=35
+            )
+            for update in r.json().get("result", []):
+                offset = update["update_id"] + 1
+                msg = update.get("message", {})
+                chat_id = msg.get("chat", {}).get("id")
+                text = (msg.get("text") or "").strip().lower()
+                if chat_id != TELEGRAM_CHAT_ID:
+                    continue
+                if text in ("/lock", "/unlock", "/mute"):
+                    cmd = text[1:].upper()
+                    send_cmd(cmd)
+                    requests.post(
+                        f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
+                        json={"chat_id": chat_id, "text": f"{cmd} sent to box."},
+                        timeout=10
+                    )
+        except Exception as e:
+            print(f"Telegram listener error: {e}")
+            time.sleep(5)
 
 dbconn = None 
 tb = None
@@ -57,6 +92,10 @@ try:
     tb.subscribe(TB_RPC_REQUEST_TOPIC)
     tb.loop_start()
     print("Connected to ThingsBoard.")
+
+    #starting the thread
+    threading.Thread(target=telegram_listener, daemon=True).start() #deamon = true makes the thread die automatically when main program exists
+    print("Telegram listener started.")
 
     #Thresholds table
     cursor = dbconn.cursor()
