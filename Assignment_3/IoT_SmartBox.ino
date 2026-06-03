@@ -141,6 +141,10 @@ void loop() {
       noTone(buzzer);
     }
 
+    if (cmd == "UNMUTE") {
+      alarmMute = false;
+    }
+
     //lock/unlock from web server
     if (cmd == "LOCK") {
       Unlocked = false;
