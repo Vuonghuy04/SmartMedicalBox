@@ -12,6 +12,9 @@ THINGSBOARD_HOST = "thingsboard.cloud"
 THINGSBOARD_PORT = 1883
 TB_ACCESS_TOKEN = "w1vBroK1aZ1FcO6SfJLX" #this is my access token from thingsboard atm
 TB_TELEMENTRY_TOPIC = "v1/devices/me/telementry"
+TB_RPC_REQUEST_TOPIC = "v1/devices/me/rpc/request/+" 
+# + is an MQTT wildcard as Thingsboard appends a request ID to each command, 
+# and a wildcard catches them all.
 
 #set thresholds for alarms
 TEMP_MIN = 15.0
@@ -43,10 +46,25 @@ try:
     )
     print("Connected to database.") #verifies connection
 
+    # Handle commands coming from ThingsBoard (or anything publishing to the RPC topic)
+    # interprets incoming RPC requests as LOCK/UNLOCK/MUTE and forwards it to the Arduino
+    # via send_cmd()
+    def on_tb_message(client, userdata, msg):
+        try:
+            body = json.loads(msg.payload.decode())
+            method = body.get("method", "").upper()  # ThingsBoard RPC sends {"method": "...", "params": ...}
+            if method in ("LOCK", "UNLOCK", "MUTE"):
+                print(f"[TB → Edge] {method}")
+                send_cmd(method)
+        except Exception as e:
+            print(f"Bad MQTT command: {e}")
+
     #connect to ThingsBoard MQTT broker
     tb = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     tb.username_pw_set = (TB_ACCESS_TOKEN)
+    tb.on_message = on_tb_message
     tb.connect(THINGSBOARD_HOST, THINGSBOARD_PORT, keepalive=60)
+    tb.subscribe(TB_RPC_REQUEST_TOPIC)
     tb.loop_start() 
     print("Connected to Thingsboard.")
     #============
