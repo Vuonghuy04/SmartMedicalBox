@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 BROKER = "mqtt.thingsboard.cloud"
 PORT = 1883
-USERNAME = "SmartBox"
+USERNAME = "104557267@student.swin.edu.au"
 TOPIC_TELEMETRY = "v1/devices/me/telemetry"
 
 CALENDAR_ICAL_URL = "https://calendar.google.com/calendar/ical/5e76a33242c624798945a5705dc147a0a28be3102d304e8291897ee81dc7368b%40group.calendar.google.com/private-a0833b019ab680a32149a360c70739ab/basic.ics"
