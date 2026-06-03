@@ -7,7 +7,7 @@ import json
 device = '/dev/cu.usbmodem101'
 arduino = serial.Serial(device, 9600)
 
-#thingsboard MQTT config
+#thingsboard MQTT config    
 THINGSBOARD_HOST = "thingsboard.cloud"
 THINGSBOARD_PORT = 1883
 TB_ACCESS_TOKEN = "w1vBroK1aZ1FcO6SfJLX" #this is my access token from thingsboard atm
