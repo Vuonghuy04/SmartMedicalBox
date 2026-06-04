@@ -109,6 +109,7 @@ def on_message(client, userdata, msg):
         print("RPC error:", e)
 
 def check_upcoming_doses():
+    global current_dose_alert
     try:
         r = requests.get(CALENDAR_ICAL_URL, timeout=10)
         if r.status_code != 200:
@@ -130,9 +131,7 @@ def check_upcoming_doses():
             if now <= dt <= soon and uid not in fired_doses:
                 summary = str(event.get('summary') or 'Dose due')
                 local_time = dt.astimezone().strftime('%H:%M')
-                msg = f"DOSE-DUE: {summary} at {local_time}"
-                print(f"[Calendar] {msg}")
-                client.publish(TOPIC_TELEMETRY, json.dumps({"alarm": msg}))
+                current_dose_alert = f"DOSE-DUE: {summary} at {local_time}"
                 fired_doses.add(uid)
     except Exception as e:
         print(f"Calendar check error: {e}")
@@ -150,6 +149,7 @@ last_telemetry = 0
 last_analytics = 0
 last_calendar_check = 0
 fired_doses = set()
+current_dose_alert = None 
 
 try:
     while True:
@@ -186,12 +186,23 @@ try:
             if row:
                 light, temp, hum = row[0], row[1], row[2]
 
+                active_alarms = []
+                if temp < t.get("TEMP_MIN", 15) or temp > t.get("TEMP_MAX", 30):
+                    active_alarms.append("TEMPERATURE")
+                if hum < t.get("HUM_MIN", 40) or hum > t.get("HUM_MAX", 70):
+                    active_alarms.append("HUMIDITY")
+                if light > t.get("LDR_MAX", 25) and locked == 1:
+                    active_alarms.append("LIGHT")
+
+                alarm_label = ", ".join(active_alarms) if active_alarms else "NONE"
+
                 payload = json.dumps({
                     "temperature": float(temp),
                     "humidity": float(hum),
                     "light": float(light),
-                    "locked":  locked,
+                    "locked": locked,
                     "lock_label": lock_label,
+                    "alarm": alarm_label,
                     "alarm_temp": int(temp < t.get("TEMP_MIN",15) or temp > t.get("TEMP_MAX",30)),
                     "alarm_hum": int(hum  < t.get("HUM_MIN",40)  or hum  > t.get("HUM_MAX",70)),
                     "alarm_ldr": int(light > t.get("LDR_MAX",25)),
@@ -207,7 +218,7 @@ try:
 
             last_telemetry = now
 
-        # ── Publish 24h analytics every 30 seconds ────────────────────────
+        # ── Publish 24h analytics ────────────────────────
         if now - last_analytics >= ANALYTICS_INTERVAL:
             dbconn = pymysql.connect(**DB_CONFIG)
             cursor = dbconn.cursor()
