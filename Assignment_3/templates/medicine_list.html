@@ -1,0 +1,125 @@
+{% extends "medicine_layout.html" %}
+{% block title %}Medicines{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Medicine management</p>
+        <h1>Medicines in the box</h1>
+    </div>
+    <form class="searchbar" method="get" action="{{ url_for('search') }}">
+        <input type="search" name="q" placeholder="Search medicine name" aria-label="Search medicine name">
+        <button type="submit">Search openFDA</button>
+    </form>
+</section>
+
+<section class="status-grid">
+    <div class="status">
+        <span class="label">Google Calendar</span>
+        <strong>{{ "Dry run" if calendar_status.dry_run else "Connected" }}</strong>
+        <small>{{ calendar_status.reason or calendar_status.calendar_id }}</small>
+    </div>
+    <div class="status">
+        <span class="label">Telegram</span>
+        <strong>{{ "Dry run" if telegram_status.dry_run else "Connected" }}</strong>
+        <small>{{ telegram_status.reason or "Bot token and chat id configured" }}</small>
+    </div>
+    <form class="status action" method="post" action="{{ url_for('run_notifications') }}">
+        <span class="label">Reminder worker</span>
+        <strong>Manual check</strong>
+        <button type="submit">Run due notifications</button>
+    </form>
+</section>
+
+{% if medicines %}
+<section class="medicine-grid">
+    {% for medicine in medicines %}
+    <article class="medicine-card">
+        <div class="card-head">
+            <div>
+                <h2>{{ medicine.brand_name }}</h2>
+                <p>{{ medicine.generic_name or "Generic name not listed" }}</p>
+            </div>
+            <span class="expiry">Expires {{ medicine.expiry_date }}</span>
+        </div>
+        <dl class="facts">
+            <div>
+                <dt>Manufacturer</dt>
+                <dd>{{ medicine.manufacturer or "N/A" }}</dd>
+            </div>
+            <div>
+                <dt>Route</dt>
+                <dd>{{ medicine.route or "N/A" }}</dd>
+            </div>
+            <div>
+                <dt>Quantity</dt>
+                <dd>{{ medicine.quantity if medicine.quantity is not none else "N/A" }}</dd>
+            </div>
+        </dl>
+
+        {% if medicine.schedules %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Dose</th>
+                    <th>Times</th>
+                    <th>Start</th>
+                    <th>End</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for schedule in medicine.schedules %}
+                <tr>
+                    <td>{{ schedule.dose_amount }}</td>
+                    <td>{{ schedule.dose_times }}</td>
+                    <td>{{ schedule.start_date }}</td>
+                    <td>{{ schedule.end_date or "Until expiry" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        <div class="card-actions">
+            <a class="button secondary" href="{{ url_for('medicine_detail', medicine_id=medicine.id) }}">Details</a>
+            <form method="post" action="{{ url_for('delete_medicine', medicine_id=medicine.id) }}">
+                <button class="danger" type="submit">Remove</button>
+            </form>
+        </div>
+    </article>
+    {% endfor %}
+</section>
+{% else %}
+<section class="empty">
+    <h2>No medicines added yet</h2>
+    <p>Search openFDA, choose a medicine, then add the expiry date and pill schedule.</p>
+    <a class="button" href="{{ url_for('search') }}">Add first medicine</a>
+</section>
+{% endif %}
+
+{% if notification_logs %}
+<section class="section">
+    <h2>Recent notifications</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Medicine</th>
+                <th>Type</th>
+                <th>Due at</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in notification_logs %}
+            <tr>
+                <td>{{ log.brand_name }}</td>
+                <td>{{ log.event_type }}</td>
+                <td>{{ log.due_at }}</td>
+                <td>{{ log.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</section>
+{% endif %}
+{% endblock %}

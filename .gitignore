@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+
+# Local runtime database used by the medicine dashboard demo.
+Assignment_3/medicine_dashboard.db
+*.sqlite
+
+# Local secrets and API credential files.
+.env
+env.ps1
+credentials.json
+token.json
+service-account*.json
+*service_account*.json

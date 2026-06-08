@@ -1,0 +1,101 @@
+{% extends "medicine_layout.html" %}
+{% block title %}Search openFDA{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">openFDA search</p>
+        <h1>Add medicine</h1>
+    </div>
+    <form class="searchbar" method="get" action="{{ url_for('search') }}">
+        <input type="search" name="q" value="{{ query }}" placeholder="e.g. aspirin" aria-label="Medicine search">
+        <button type="submit">Search</button>
+    </form>
+</section>
+
+{% if error %}
+<section class="message error">{{ error }}</section>
+{% endif %}
+
+{% if query and not error and not results %}
+<section class="empty">
+    <h2>No results found</h2>
+    <p>Try a brand name or generic medicine name.</p>
+</section>
+{% endif %}
+
+{% if results %}
+<section class="result-list">
+    {% for result in results %}
+    <article class="result">
+        <div class="result-summary">
+            <h2>{{ result.brand_name }}</h2>
+            <p>{{ result.generic_name or "Generic name not listed" }}</p>
+            <dl class="facts">
+                <div>
+                    <dt>Manufacturer</dt>
+                    <dd>{{ result.manufacturer or "N/A" }}</dd>
+                </div>
+                <div>
+                    <dt>Route</dt>
+                    <dd>{{ result.route or "N/A" }}</dd>
+                </div>
+                <div>
+                    <dt>Product type</dt>
+                    <dd>{{ result.product_type or "N/A" }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <form class="add-form" method="post" action="{{ url_for('add_medicine') }}">
+            <input type="hidden" name="source_id" value="{{ result.source_id }}">
+            <input type="hidden" name="brand_name" value="{{ result.brand_name }}">
+            <input type="hidden" name="generic_name" value="{{ result.generic_name }}">
+            <input type="hidden" name="manufacturer" value="{{ result.manufacturer }}">
+            <input type="hidden" name="product_type" value="{{ result.product_type }}">
+            <input type="hidden" name="route" value="{{ result.route }}">
+            <input type="hidden" name="substance_name" value="{{ result.substance_name }}">
+            <input type="hidden" name="warnings" value="{{ result.warnings }}">
+            <input type="hidden" name="purpose" value="{{ result.purpose }}">
+            <input type="hidden" name="dosage_and_administration" value="{{ result.dosage_and_administration }}">
+            <input type="hidden" name="source_json" value="{{ result.source_json }}">
+
+            <label>
+                Expiry date
+                <input type="date" name="expiry_date" required>
+            </label>
+            <label>
+                Quantity
+                <input type="number" min="0" name="quantity" placeholder="30">
+            </label>
+            <label>
+                Dose amount
+                <input type="text" name="dose_amount" placeholder="1 pill" required>
+            </label>
+            <label>
+                Dose times
+                <input type="text" name="dose_times" placeholder="08:00, 20:00" required>
+            </label>
+            <label>
+                Start date
+                <input type="date" name="start_date">
+            </label>
+            <label>
+                End date
+                <input type="date" name="end_date">
+            </label>
+            <label class="wide">
+                Instructions
+                <input type="text" name="instructions" placeholder="After food">
+            </label>
+            <label class="wide">
+                Notes
+                <input type="text" name="notes" placeholder="Box slot or extra detail">
+            </label>
+            <button type="submit">Add to box</button>
+        </form>
+    </article>
+    {% endfor %}
+</section>
+{% endif %}
+{% endblock %}

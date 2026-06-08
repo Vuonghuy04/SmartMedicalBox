@@ -1,0 +1,95 @@
+{% extends "medicine_layout.html" %}
+{% block title %}{{ medicine.brand_name }}{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div>
+        <p class="eyebrow">Medicine detail</p>
+        <h1>{{ medicine.brand_name }}</h1>
+        <p>{{ medicine.generic_name or "Generic name not listed" }}</p>
+    </div>
+    <a class="button secondary" href="{{ url_for('medicines') }}">Back to medicines</a>
+</section>
+
+<section class="detail-grid">
+    <div class="panel">
+        <h2>Stored medicine data</h2>
+        <dl class="facts stacked">
+            <div>
+                <dt>Expiry date</dt>
+                <dd>{{ medicine.expiry_date }}</dd>
+            </div>
+            <div>
+                <dt>Manufacturer</dt>
+                <dd>{{ medicine.manufacturer or "N/A" }}</dd>
+            </div>
+            <div>
+                <dt>Route</dt>
+                <dd>{{ medicine.route or "N/A" }}</dd>
+            </div>
+            <div>
+                <dt>Substance</dt>
+                <dd>{{ medicine.substance_name or "N/A" }}</dd>
+            </div>
+            <div>
+                <dt>Warnings</dt>
+                <dd>{{ medicine.warnings or "N/A" }}</dd>
+            </div>
+        </dl>
+    </div>
+
+    <div class="panel">
+        <h2>Pill schedule</h2>
+        {% if medicine.schedules %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Dose</th>
+                    <th>Times</th>
+                    <th>Start</th>
+                    <th>End</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for schedule in medicine.schedules %}
+                <tr>
+                    <td>{{ schedule.dose_amount }}</td>
+                    <td>{{ schedule.dose_times }}</td>
+                    <td>{{ schedule.start_date }}</td>
+                    <td>{{ schedule.end_date or "Until expiry" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No schedule saved.</p>
+        {% endif %}
+    </div>
+</section>
+
+<section class="section">
+    <h2>Calendar events</h2>
+    {% if medicine.calendar_events %}
+    <table>
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Calendar event ID</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in medicine.calendar_events %}
+            <tr>
+                <td>{{ event.event_type }}</td>
+                <td>{{ event.calendar_event_id }}</td>
+                <td>{{ event.status }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No calendar events recorded.</p>
+    {% endif %}
+</section>
+{% endblock %}

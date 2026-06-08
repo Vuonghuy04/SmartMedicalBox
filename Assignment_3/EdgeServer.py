@@ -2,6 +2,7 @@ import serial
 import pymysql
 import time
 import json
+import os
 import paho.mqtt.client as mqtt
 import threading 
 import requests
@@ -16,9 +17,10 @@ TB_ACCESS_TOKEN      = "SmartBox"
 TB_TELEMETRY_TOPIC   = "v1/devices/me/telemetry"
 TB_RPC_REQUEST_TOPIC = "v1/devices/me/rpc/request/+"
 
-#Telegram config
-TELEGRAM_TOKEN = "8689084846:AAG2pNabNlin-BdEWlO2CRJKMdn5tHlx1mQ"
-TELEGRAM_CHAT_ID = 8891459090
+# Telegram config
+# Use the same environment variables as medicine_reminder.py.
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN", "").strip()
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
 #arm delay system
 arm_delay_active = False #delay period
@@ -57,6 +59,10 @@ def on_tb_message(client, userdata, msg):
 
 #listener function from telegram
 def telegram_listener():
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("Telegram listener disabled: set TELEGRAM_TOKEN and TELEGRAM_CHAT_ID.")
+        return
+
     offset = 0
     valid_params = ("TEMP_MIN", "TEMP_MAX", "HUM_MIN", "HUM_MAX", "LDR_MAX")
     while True:
@@ -71,7 +77,7 @@ def telegram_listener():
                 msg = update.get("message", {})
                 chat_id = msg.get("chat", {}).get("id")
                 text = (msg.get("text") or "").strip()
-                if chat_id != TELEGRAM_CHAT_ID:
+                if str(chat_id) != TELEGRAM_CHAT_ID:
                     continue
 
                 lower = text.lower()
@@ -118,7 +124,7 @@ def telegram_listener():
                 if reply:
                     requests.post(
                         f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage",
-                        json={"chat_id": chat_id, "text": reply},
+                        json={"chat_id": TELEGRAM_CHAT_ID, "text": reply},
                         timeout=10
                     )
         except Exception as e:
@@ -149,8 +155,11 @@ try:
     print("Connected to ThingsBoard.")
 
     #starting the thread
-    threading.Thread(target=telegram_listener, daemon=True).start() #deamon = true makes the thread die automatically when main program exists
-    print("Telegram listener started.")
+    if TELEGRAM_TOKEN and TELEGRAM_CHAT_ID:
+        threading.Thread(target=telegram_listener, daemon=True).start() #deamon = true makes the thread die automatically when main program exists
+        print("Telegram listener started.")
+    else:
+        print("Telegram listener not started: set TELEGRAM_TOKEN and TELEGRAM_CHAT_ID.")
 
     #Thresholds table
     cursor = dbconn.cursor()
