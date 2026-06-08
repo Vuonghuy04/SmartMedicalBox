@@ -246,10 +246,10 @@ try:
             client.publish(TOPIC_TELEMETRY, analytics)
             last_analytics = now
 
-            # ── Check calendar for upcoming doses ────────────────────────────────
-            if now - last_calendar_check >= CALENDAR_INTERVAL:
-                check_upcoming_doses()
-                last_calendar_check = now
+        # ── Check calendar for upcoming doses ────────────────────────────────
+        if now - last_calendar_check >= CALENDAR_INTERVAL:
+            check_upcoming_doses()
+            last_calendar_check = now
 
         time.sleep(0.1)
 
